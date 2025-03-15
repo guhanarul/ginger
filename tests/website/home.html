@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ginger Shows</title>
+    <link rel="icon" type="image/png" href="images/ginger.png">
+    <style>
+        body {
+            background: url('images/stars-background.png') no-repeat center center fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            width: 350px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: none;
+            position: relative;
+            top: 50px;
+        }
+        .active {
+            display: block;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            background: #ff9800;
+            color: white;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .back-btn {
+            background: #888;
+        }
+        .movies {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .movies img {
+            width: 100px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none;
+        }
+        .loading {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        
+        /* Captcha Modal */
+        #captchaModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        #captchaQuestion {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        #captchaAnswer {
+            width: 80px;
+            padding: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="login" class="container active">
+        <h2>Login</h2>
+        <button onclick="requestHealthCheck(() => navigate('home'), 'login')">Login</button>
+    </div>
+
+    <div id="home" class="container">
+        <h2>Welcome to GingerShows</h2>
+        <button onclick="requestHealthCheck(() => navigate('profile'), 'profile')">Profile Setup</button>
+        <button onclick="requestHealthCheck(() => navigate('movies'), 'movies')">Movies</button>
+    </div>
+
+    <div id="profile" class="container">
+        <h2>Here you can change profile setup</h2>
+        <button class="back-btn" onclick="navigate('home')">Back</button>
+    </div>
+
+    <div id="movies" class="container">
+        <h2>Choose an Option</h2>
+        <button onclick="requestHealthCheck(() => navigate('rent'),'rentMovies')">🎥 Rent Movie</button>
+        <button onclick="requestHealthCheck(() => navigate('buy'),'buyMovies')">📀 Buy Movie</button>
+        <button class="back-btn" onclick="navigate('home')">Back</button>
+    </div>
+
+    <div id="rent" class="container">
+        <h2>Rent a Movie</h2>
+        <div class="movies">
+            <img src="images/mei.png" onclick="selectMovie('rent', 'mei')">
+            <img src="images/inter.png" onclick="selectMovie('rent', 'inter')">
+            <img src="images/gravity.png" onclick="selectMovie('rent', 'gravity')">
+            <img src="images/bladerunner.png" onclick="selectMovie('rent', 'bladerunner')">
+        </div>
+        <button class="back-btn" onclick="navigate('movies')">Back</button>
+        <button id="pay-rent" class="hidden" onclick="startPayment()">Pay</button>
+    </div>
+
+    <div id="buy" class="container">
+        <h2>Buy a Movie</h2>
+        <div class="movies">
+            <img src="images/mei.png" onclick="selectMovie('buy', 'mei')">
+            <img src="images/inter.png" onclick="selectMovie('buy', 'inter')">
+            <img src="images/gravity.png" onclick="selectMovie('buy', 'gravity')">
+            <img src="images/bladerunner.png" onclick="selectMovie('buy', 'bladerunner')">
+        </div>
+        <button class="back-btn" onclick="navigate('movies')">Back</button>
+        <button id="pay-buy" class="hidden" onclick="startPayment()">Pay</button>
+    </div>
+
+    <div id="captchaModal">
+        <h3>🔒 Verify You're Human</h3>
+        <p id="captchaQuestion"></p>
+        <input type="number" id="captchaAnswer" placeholder="Answer">
+        <button onclick="validateCaptcha()">Submit</button>
+    </div>
+
+    <script>
+        function navigate(page) {
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.getElementById(page).classList.add('active');
+        }
+
+        function requestHealthCheck(callback, buttonType) {
+            fetch("http://127.0.0.1:8084/ginger/calls", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ endpoint: buttonType, username: "guhanGokul" }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Server response:", data);
+                if (data.status && (data.status.toLowerCase() === "bot_detected" || data.status.toLowerCase() === "mid_bot")) {
+                    showCaptcha(callback);
+                } else {
+                    callback();
+                }
+            })
+            .catch(error => {
+                console.error("Fetch error:", error);
+                alert("Server error, check console for details.");
+            });
+        }
+
+
+        function showCaptcha(callback) {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            window.correctAnswer = num1 + num2;
+            window.captchaSuccessCallback = callback;
+
+            document.getElementById("captchaQuestion").innerText = `What is ${num1} + ${num2}?`;
+            document.getElementById("captchaAnswer").value = "";
+            document.getElementById("captchaModal").style.display = "block";
+        }
+
+        function validateCaptcha() {
+            const userAnswer = parseInt(document.getElementById("captchaAnswer").value, 10);
+            if (userAnswer === window.correctAnswer) {
+                document.getElementById("captchaModal").style.display = "none";
+                if (typeof window.captchaSuccessCallback === "function") {
+                    setTimeout(() => {
+                        window.captchaSuccessCallback();
+                    }, 300);
+                }
+            } else {
+                alert("❌ Incorrect! Try again.");
+            }
+        }
+
+        function selectMovie(type, movie) {
+            document.getElementById(type === 'rent' ? 'pay-rent' : 'pay-buy').classList.remove('hidden');
+        }
+
+        function startPayment() {
+            const container = document.querySelector('.container.active');
+
+            // Ensure the message is not pre-existing
+            let paymentMessage = container.querySelector('.payment-message');
+            if (!paymentMessage) {
+                paymentMessage = document.createElement('p');
+                paymentMessage.innerText = "Processing Payment... Please wait.";
+                paymentMessage.classList.add('payment-message');
+                paymentMessage.style.fontSize = "20px";
+                paymentMessage.style.marginTop = "20px";
+                container.appendChild(paymentMessage);
+            }
+
+            setTimeout(() => {
+                navigate('movies');
+            }, 3000);
+        }
+
+        let activityData = {
+        mouseMoves: 0,
+        clicks: 0,
+        movementPatterns: [],
+        startTime: Date.now()
+        };
+
+        document.addEventListener("mousemove", (event) => {
+            activityData.mouseMoves++;
+            let timeNow = Date.now();
+            let timeDiff = timeNow - (activityData.lastMoveTime || activityData.startTime);
+            activityData.movementPatterns.push({ x: event.clientX, y: event.clientY, timeDiff });
+            activityData.lastMoveTime = timeNow;
+        });
+
+        document.addEventListener("click", () => {
+            activityData.clicks++;
+        });
+
+        function sendActivityData() {
+            if (activityData.mouseMoves === 0 && activityData.clicks === 0) return; // Skip sending if no activity
+            
+            fetch("http://127.0.0.1:8084/analysefront", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(activityData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("FrontEnd-Anlaysis", data);
+                if (data.status && data.status.toLowerCase() === "bot_detected") {
+                    showCaptcha(callback);
+                }
+            })
+            .catch(error => console.error("Error sending activity data:", error));
+
+            activityData.mouseMoves = 0;
+            activityData.clicks = 0;
+            activityData.movementPatterns = [];
+            activityData.startTime = Date.now();
+        }
+
+
+        setInterval(sendActivityData, 1000);
+
+
+
+    </script>
+</body>
+</html>
